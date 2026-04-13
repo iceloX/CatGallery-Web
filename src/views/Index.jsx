@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Select, Avatar, Dropdown, Modal, Tag, Spin, message } from 'antd'
+import { Select, Avatar, Modal, Tag, Spin, message, notification } from 'antd'
+import catLogo from '../assets/sneezing-cat.svg'
 import { UserOutlined, LogoutOutlined, PictureOutlined, HeartOutlined, AppstoreOutlined, LoadingOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons'
 import { authService } from '../services/auth.service'
 import styles from './Index.module.css'
@@ -60,6 +61,9 @@ function Index() {
   const [loading, setLoading] = useState(false)
   const [colCount, setColCount] = useState(5)
   const [darkMode, setDarkMode] = useState(false)
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginLoading, setLoginLoading] = useState(false)
   const sentinelRef = useRef(null)
 
   // Responsive column count
@@ -76,6 +80,24 @@ function Index() {
     return () => window.removeEventListener('resize', updateCols)
   }, [])
 
+  // Show test account notification (DEV only, not logged in)
+  useEffect(() => {
+    if (import.meta.env.DEV && !authService.isAuthenticated()) {
+      notification.info({
+        key: 'test-accounts-index',
+        message: '测试账号',
+        description: (
+          <div style={{ lineHeight: '24px' }}>
+            <div><strong>管理员：</strong>admin@snapq.com / admin123</div>
+            <div><strong>用户：</strong>user@snapq.com / user123</div>
+          </div>
+        ),
+        duration: 0,
+        placement: 'bottomRight'
+      })
+    }
+  }, [])
+
   // Distribute photos into columns (round-robin)
   const filtered = selectedAlbum === '全部'
     ? photos
@@ -90,11 +112,44 @@ function Index() {
   }, [filtered, colCount])
 
   const currentUser = authService.getCurrentUser()
+  const [authed, setAuthed] = useState(authService.isAuthenticated())
+  const isLoggedIn = authed
 
-  const handleLogout = async () => {
-    await authService.logout()
-    navigate('/login')
-    message.success('已成功退出登录')
+  const handleLogout = () => {
+    Modal.confirm({
+      title: '确认退出',
+      content: '确定要退出登录吗？',
+      okText: '退出',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: async () => {
+        await authService.logout()
+        setAuthed(false)
+        navigate('/index')
+        message.success('已成功退出登录')
+      }
+    })
+  }
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    if (!loginEmail || !loginPassword) {
+      message.warning('请输入邮箱和密码')
+      return
+    }
+    setLoginLoading(true)
+    try {
+      const { user } = await authService.login(loginEmail, loginPassword, false)
+      message.success('登录成功')
+      setAuthed(true)
+      if (user.role === 'admin') {
+        navigate('/admin')
+      }
+    } catch (err) {
+      message.error(err.message || '登录失败')
+    } finally {
+      setLoginLoading(false)
+    }
   }
 
   // Infinite scroll with Intersection Observer
@@ -125,40 +180,58 @@ function Index() {
     return () => observer.disconnect()
   }, [handleLoadMore])
 
-  const userMenuItems = [
-    { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: handleLogout }
-  ]
-
   return (
     <div className={`${styles.galleryPage} ${darkMode ? styles.dark : ''}`}>
       {/* Header hover trigger */}
       <div className={styles.headerTrigger} />
       {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.logo}>
-          <PictureOutlined style={{ marginRight: 8, fontSize: 20 }} />
-          SnapQ
-        </div>
-        <div className={styles.headerRight}>
-          <button
-            className={styles.themeBtn}
-            onClick={() => setDarkMode(v => !v)}
-          >
-            {darkMode ? <SunOutlined /> : <MoonOutlined />}
-          </button>
-          <Select
-            value={selectedAlbum}
-            onChange={setSelectedAlbum}
-            variant="borderless"
-            style={{ width: 130 }}
-            options={albums.map(a => ({ value: a, label: a === '全部' ? '全部' : a }))}
-          />
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <div className={styles.userArea}>
-              <Avatar icon={<UserOutlined />} size={28} />
+      <header className={`${styles.header} ${isLoggedIn ? styles.headerCompact : ''} ${darkMode ? styles.headerDark : styles.headerLight}`}>
+        {isLoggedIn ? (
+          <>
+            <img src={catLogo} alt="SnapQ Logo" className={styles.catLogo} />
+            <div className={styles.headerRight}>
+              <button className={styles.themeBtn} onClick={() => setDarkMode(v => !v)}>
+                {darkMode ? <SunOutlined /> : <MoonOutlined />}
+              </button>
+              <Select
+                value={selectedAlbum}
+                onChange={setSelectedAlbum}
+                variant="borderless"
+                style={{ width: 130, color: darkMode ? '#fff' : '#1a1a1a' }}
+                popupClassName={darkMode ? 'albumSelectDark' : ''}
+                getPopupContainer={(trigger) => trigger.parentElement}
+                options={albums.map(a => ({ value: a, label: a === '全部' ? '全部' : a }))}
+              />
+              <div className={styles.userArea} onClick={handleLogout} title="点击退出登录">
+                <Avatar icon={<UserOutlined />} size={36} />
+              </div>
             </div>
-          </Dropdown>
-        </div>
+          </>
+        ) : (
+          <form className={styles.loginForm} onSubmit={handleLogin}>
+            <div className={styles.loginTitle}>
+              <PictureOutlined style={{ marginRight: 10 }} />
+              SnapQ
+            </div>
+            <input
+              className={styles.loginInput}
+              type="email"
+              placeholder="邮箱"
+              value={loginEmail}
+              onChange={e => setLoginEmail(e.target.value)}
+            />
+            <input
+              className={styles.loginInput}
+              type="password"
+              placeholder="密码"
+              value={loginPassword}
+              onChange={e => setLoginPassword(e.target.value)}
+            />
+            <button className={styles.loginBtn} type="submit" disabled={loginLoading}>
+              {loginLoading ? '登录中...' : '登 录'}
+            </button>
+          </form>
+        )}
       </header>
 
       {/* Waterfall Grid */}

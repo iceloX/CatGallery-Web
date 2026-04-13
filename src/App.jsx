@@ -10,7 +10,8 @@ import styles from './App.module.css'
  */
 function getHomePath() {
   const user = authService.getCurrentUser()
-  return user?.role === 'admin' ? '/admin' : '/index'
+  if (!user) return '/index'
+  return user.role === 'admin' ? '/admin' : '/index'
 }
 
 function App() {
@@ -18,7 +19,7 @@ function App() {
     <div className={styles.appContainer}>
       <Routes>
         <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
-        <Route path="/index" element={<ProtectedRoute role="user"><Index /></ProtectedRoute>} />
+        <Route path="/index" element={<Index />} />
         <Route path="/admin/*" element={<ProtectedRoute role="admin"><Admin /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to={getHomePath()} replace />} />
       </Routes>

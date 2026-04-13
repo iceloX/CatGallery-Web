@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { message } from 'antd'
+import { message, notification } from 'antd'
 import { authService } from '../services/auth.service'
 import styles from './Login.module.css'
 
@@ -237,6 +237,24 @@ function Login() {
   const [rememberMe, setRememberMe] = useState(false)
   const [passwordFocused, setPasswordFocused] = useState(false)
   const [emailError, setEmailError] = useState('')
+
+  // Show test account notification on page load (DEV only)
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      notification.info({
+        key: 'test-accounts',
+        message: '测试账号',
+        description: (
+          <div style={{ lineHeight: '24px' }}>
+            <div><strong>管理员：</strong>admin@snapq.com / admin123</div>
+            <div><strong>用户：</strong>user@snapq.com / user123</div>
+          </div>
+        ),
+        duration: 0,
+        placement: 'bottomRight'
+      })
+    }
+  }, [])
 
   const validateEmail = (value) => {
     if (!value) return ''

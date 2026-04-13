@@ -10,3 +10,20 @@ html, body {
   height: 100%;
   overflow-x: hidden;
 }
+
+/* Dark mode dropdown for album selector */
+.albumSelectDark {
+  background: #1f1f1f !important;
+}
+
+.albumSelectDark .ant-select-item {
+  color: #fff !important;
+}
+
+.albumSelectDark .ant-select-item-option-active {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.albumSelectDark .ant-select-item-option-selected {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
